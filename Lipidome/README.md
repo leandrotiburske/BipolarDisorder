@@ -1,4 +1,8 @@
-`.raw` mass espectometry files were converted to `.mzXML` fomat using the following command:
+# Lipidome
+
+## Raw files conversion
+
+`.raw` mass espectometry files were converted to `.mzXML` fomat using the following Linux command:
 
 ```
 for file in *.raw;
