@@ -361,12 +361,12 @@ write.table(DEGs_test_groups,
             row.names = F,
             quote = F)
 
-## BP2 vs BP1 (only women)
+## BP2 vs BP1 (only women/men)
 # Run DESeq for TEST classes (In this case, BP2 vs BP1)
 
 # Redefine sample classes in a metatable
 metatable <- metatable[metatable$class != 'Control', ]
-metatable <- metatable[metatable$sex == 0, ]
+sexes <- unique(metatable$sex)
 
 # Define the targets/conditions (all classes but control/healthy)
 classes <- "BP2"
@@ -374,44 +374,69 @@ classes <- "BP2"
 # Define the control group label
 control_label <- "BP1"
 
-# Subset metadata to include only samples of the chosen class and controls
-meta <- metatable %>%
-  filter(class %in% c(classes, control_label))
+for(i in 1:length(sexes)){
+  # Define class to be compared in DE analysis
+  sx <- sexes[i]
+  
+  # Subset metadata to include only samples of the chosen class and controls
+  meta <- metatable %>%
+    filter(sex == sx)
+  
+  # Transform class column into a factor with the levels in the correct order:
+  # FIRST CONTROL, SECOND TREATED.
+  meta$class <- factor(meta$class, levels = c(control_label, classes))
+  
 
-# Transform class column into a factor with the levels in the correct order:
-# FIRST CONTROL, SECOND TREATED.
-meta$class <- factor(meta$class, levels = c(control_label, classes))
+  # Subset metadata to include only samples of the chosen class and controls
+  meta <- metatable %>%
+    filter(class %in% c(classes, control_label))
 
-# Subset count matrix to keep samples of the chosen class and controls
-cnt <- as.matrix(exp_set[,colnames(exp_set) %in% meta$sample_name])
+  # Transform class column into a factor with the levels in the correct order:
+  # FIRST CONTROL, SECOND TREATED.
+  meta$class <- factor(meta$class, levels = c(control_label, classes))
 
-# create dds object. There is no BD patient from cohort B
-meta$lithium_use <- factor(meta$lithium_use)
-dds_trat <- DESeqDataSetFromMatrix(countData = cnt,
-                                   colData = meta,
-                                   design = ~ lithium_use + class,
-                                   tidy = F)
+  # Subset count matrix to keep samples of the chosen class and controls
+  cnt <- as.matrix(exp_set[,colnames(exp_set) %in% meta$sample_name])
 
-# Remove genes that have zero counts in all samples (i.e. not expressed genes)
-keep <- rowSums(counts(dds_trat)) > 1
-dds_trat <- dds_trat[keep,]
+  # create dds object. There is no BD patient from cohort B
+  meta$lithium_use <- factor(meta$lithium_use)
+  dds_trat <- DESeqDataSetFromMatrix(countData = cnt,
+                                     colData = meta,
+                                     design = ~ lithium_use + class,
+                                     tidy = F)
 
-# Run DE analysis with default DESeq2 settings
-dds_trat <- DESeq(dds_trat)
+  # Remove genes that have zero counts in all samples (i.e. not expressed genes)
+  keep <- rowSums(counts(dds_trat)) > 1
+  dds_trat <- dds_trat[keep,]
 
-# extract results defining the order of comparison
-# must be: constrast=c("CLASS COLUMN IN META","DISEASE/TREATMENT GROUP","CONTROL)
-# This will give log2FoldChange values that correspond to disease vs control
-res <- as.data.frame(results(dds_trat, contrast = c("class",
+  # Run DE analysis with default DESeq2 settings
+  dds_trat <- DESeq(dds_trat)
+
+  # extract results defining the order of comparison
+  # must be: constrast=c("CLASS COLUMN IN META","DISEASE/TREATMENT GROUP","CONTROL)
+  # This will give log2FoldChange values that correspond to disease vs control
+  res <- as.data.frame(results(dds_trat, contrast = c("class",
                                                     classes,
                                                     control_label)))
+  res_annot <- res %>%
+    tibble::rownames_to_column("Gene") %>%
+    mutate(group = sx)
+  
+  if(i==1){
+    DEGs_all_DESeq2 <- res_annot
+  }else{
+    DEGs_all_DESeq2 <- rbind(DEGs_all_DESeq2, res_annot)
+  }
+  
+}
+rm(res_annot, res, meta, cnt, classes, control_label)
 
 # DEGs of BP2 vs BP1
-DEGs_test_groups = res
+DEGs_test_groups = DEGs_all_DESeq2
 
 DEGs_test_groups$Gene <- rownames(DEGs_test_groups)
 write.table(DEGs_test_groups,
-            file = 'intermediate/DEGs_BP2_vs_BP1_OW.tsv',
+            file = 'intermediate/DEGs_BP2_vs_BP1_OWM.tsv',
             sep = '\t',
             row.names = F,
             quote = F)
