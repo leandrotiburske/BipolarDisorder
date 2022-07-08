@@ -157,7 +157,7 @@ write.table(samplesinfo,
 
 
 
-################################ Plot PCAs ##################################### 
+###################### Plot PCAs ##################################### 
 
 
 
@@ -242,14 +242,8 @@ rm(bpctrl, PCA, pca_plot, vsd, pca_var, pca_var_per, percentage)
 
 
 
-############################## DEGs with DESeq2 ################################ 
-
-
-
-
-
-
-## BP1 and BP2 vs Ctrl
+###################### DEGs with DESeq2
+###################### BP1 and BP2 vs Ctrl ####
 
 classes <- unique(samplesinfo$Class)[-c(3)]
 
@@ -322,7 +316,9 @@ rm(res_annot, res, meta, cnt, cl, classes, control_label)
 
 
 
-## BP2 vs BP1  
+
+
+###################### BP2 vs BP1 #### 
 
 # Run DESeq for TEST classes (In this case, BP2 vs BP1)
 
@@ -371,7 +367,7 @@ res <- as.data.frame(results(dds_trat, contrast = c("class",
 # DEGs of BP2 vs BP1
 DEGs_test_groups = res
 
-# Save DEGs as data frames ######################
+# Save DEGs as data frames 
 dir.create('intermediate')
 write.table(DEGs_all_DESeq2,
             file = 'intermediate/DEGs_BP1-2_vs_Control.tsv',
@@ -389,7 +385,7 @@ write.table(DEGs_test_groups,
 
 
 
-## BP2 vs BP1 (only women/men)
+################################ BP2 vs BP1 (only women/men) ####
 # Run DESeq for TEST classes (In this case, BP2 vs BP1)
 
 # Redefine sample classes in a metatable
@@ -472,7 +468,7 @@ write.table(DEGs_test_groups,
 
 
 
-## BP vs Ctrl (women and men)
+############################## BP vs Ctrl (women and men) ####
 # Run DESeq for TEST classes (In this case, BP vs Control)
 
 # Redefine sample classes in a metatable
