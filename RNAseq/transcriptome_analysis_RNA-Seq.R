@@ -151,7 +151,19 @@ write.table(samplesinfo,
             file = 'intermediate/samplesinfo.tsv',
             sep = '\t',
             row.names = T)
-###################### Plot PCAs ###################### 
+
+
+
+
+
+
+################################ Plot PCAs ##################################### 
+
+
+
+
+
+
 setwd('/home/leandro/Documents/IC/bpd_2020_krebs_phycomed/bpd_2020_krebs_phycomed')
 library(dplyr)
 library(tibble)
@@ -224,7 +236,18 @@ ggplot(pca_plot,
 
 rm(bpctrl, PCA, pca_plot, vsd, pca_var, pca_var_per, percentage)
 
+
+
+
+
+
+
 ############################## DEGs with DESeq2 ################################ 
+
+
+
+
+
 
 ## BP1 and BP2 vs Ctrl
 
@@ -297,6 +320,8 @@ for(i in 1:length(classes)){
 }
 rm(res_annot, res, meta, cnt, cl, classes, control_label)
 
+
+
 ## BP2 vs BP1  
 
 # Run DESeq for TEST classes (In this case, BP2 vs BP1)
@@ -360,6 +385,9 @@ write.table(DEGs_test_groups,
             sep = '\t',
             row.names = F,
             quote = F)
+
+
+
 
 ## BP2 vs BP1 (only women/men)
 # Run DESeq for TEST classes (In this case, BP2 vs BP1)
@@ -440,6 +468,9 @@ write.table(DEGs_test_groups,
             sep = '\t',
             row.names = F,
             quote = F)
+
+
+
 
 ## BP vs Ctrl (women and men)
 # Run DESeq for TEST classes (In this case, BP vs Control)
