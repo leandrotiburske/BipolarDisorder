@@ -1,4 +1,6 @@
-setwd('~/Documents/bpd_2020_krebs_phycomed/bpd_2020_krebs_phycomed')
+###################### Changing directory ####
+
+setwd('~/Documents/IC/bpd_2020_krebs_phycomed/bpd_2020_krebs_phycomed')
 
 ###################### Loading ###################### 
 library(data.table)
@@ -122,7 +124,9 @@ samplesinfo$Class = samplesinfo$bipolar.disorder.diagnosis.ch1
 # Change characters in sex column to numbers so that removeBatchEffect() can analyse it
 samplesinfo$Sex.ch1[samplesinfo$Sex.ch1 == "F"] <- 0
 samplesinfo$Sex.ch1[samplesinfo$Sex.ch1 == "M"] <- 1
+
 library(tidyverse)
+
 drop_indexes <- which(is.na(samplesinfo$Sex.ch1))
 samplesinfo <- samplesinfo %>% drop_na(Sex.ch1)
 exp_set <- subset(exp_set, select = -c(drop_indexes))
@@ -138,13 +142,16 @@ metatable <- data.frame(metatable,
                         sample_name=samplesinfo$Sample)
 
 
-# Normalization with DESeq
+###################### Normalization with DESeq ####
 library(DESeq2)
+
 dds <- DESeqDataSetFromMatrix(countData = exp_set, colData = metatable, design = ~ class)
 dds <- estimateSizeFactors(dds)
 normalized_deseq <- counts(dds, normalized=TRUE)
 vsd <- vst(dds, blind=FALSE)
+
 library(limma)
+
 assay(vsd) <- limma::removeBatchEffect(assay(vsd),
                                        batch = vsd$rin,
                                        batch2 = vsd$sex,
@@ -153,18 +160,22 @@ assay(vsd) <- limma::removeBatchEffect(assay(vsd),
 vsd <- assay(vsd)
 normalized_deseq <- as.data.frame(vsd)
 
-# Normalization with edgeR
+###################### Normalization with edgeR ####
 library(edgeR)
+
 dds <- DESeqDataSetFromMatrix(countData = exp_set, colData = samplesinfo, design = ~ Class)
 normalized_tmm <- calcNormFactors(dds, method = "TMM")
 tmm <- cpm(normalized_tmm)
 tmm <- as.data.frame(tmm)
 
-# Use MDP function on data normalized with DESeq
+###################### Using MDP function on data normalized with DESeq ####
 library(mdp)
+
 mdp_deseq <- mdp(normalized_deseq, samplesinfo, control_lab = "Control")
-## Plot boxplot for all the samples
+
+###################### Plot boxplot for all the samples ####
 library(ggplot2)
+
 boxplot_deseq <- mdp_deseq$sample_scores$allgenes
 boxplot_deseq %>% 
   ggplot(aes(x = Class, y = zscore_class)) + 
@@ -177,22 +188,29 @@ boxplot_deseq %>%
   geom_boxplot(width = .2, outlier.colour = NA, coef = 1000) + 
   geom_jitter(width = 0.05, alpha = 0.4, color = "orange") +
   labs(title = "Considering perturbed genes and DESeq normalization")
+
 ## Get outlier samples
+
 outliers_deseq <- c()
+
 for(i in which(mdp_deseq$sample_scores$allgenes$outlier == 1)){
   outliers_deseq <- c(outliers_deseq, mdp_deseq$sample_scores$allgenes$Sample[i])
 }
 print(paste0("Number of outlier samples considering all genes + DESeq normalization: ", length(outliers_deseq)))
 
 outliers_deseq <- c()
+
 for(i in which(mdp_deseq$sample_scores$perturbedgenes$outlier == 1)){
   outliers_deseq <- c(outliers_deseq, mdp_deseq$sample_scores$perturbedgenes$Sample[i])
 }
 print(paste0("Number of outlier samples considering perturbed genes + DESeq normalization: ", length(outliers_deseq)))
 
-# Use MDP function on data normalized with edgeR
+###################### Use MDP function on data normalized with edgeR ####
+
 mdp_tmm <- mdp(tmm, samplesinfo, control_lab = "Control")
-## Plot boxplot for all samples
+
+###################### Plot boxplot for all samples ####
+
 boxplot_tmm <- mdp_tmm$sample_scores$allgenes
 boxplot_tmm %>% 
   ggplot(aes(x = Class, y = zscore_class)) + 
@@ -205,15 +223,20 @@ boxplot_tmm %>%
   geom_boxplot(width = .2, outlier.colour = NA, coef = 1000) + 
   geom_jitter(width = 0.05, alpha = 0.4, color = "orange") +
   labs(title = "Considering perturbed genes and TMM normalization")
-## Get outlier samples
+
+###################### Get outlier samples ####
+
 outliers_tmm <- c()
+
 for(i in which(mdp_tmm$sample_scores$perturbedgenes$outlier == 1)){
   outliers_tmm <- c(outliers_tmm, mdp_tmm$sample_scores$perturbedgenes$Sample[i])
 }
 print(paste0("Number of outlier samples considering perturbed genes + TMM normalization: ", length(outliers_tmm)))
 
 outliers_tmm <- c()
+
 for(i in which(mdp_tmm$sample_scores$allgenes$outlier == 1)){
   outliers_tmm <- c(outliers_tmm, mdp_tmm$sample_scores$allgenes$Sample[i])
 }
+
 print(paste0("Number of outlier samples considering all genes + TMM normalization: ", length(outliers_tmm)))

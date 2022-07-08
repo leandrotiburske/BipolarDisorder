@@ -1,11 +1,6 @@
 #### Microarray expression analysis
 #### Affymetrix
 
-# Author: Juan Carlo Santos e Silva
-# Computational Systems BIolopgy Laboratories
-# Advisor: Helder I Nakaya
-# Date: 18/05/2022
-
 # -- Get data
 # -- Quality control
 # -- Annotation
