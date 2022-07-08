@@ -1,5 +1,3 @@
-# REMOVER BATCH EFFECT DE DEGs
-
 #### Transcriptome Study of Bipolar Disorder Type I and II ----
 
 setwd('/home/leandro/Documents/IC/bpd_2020_krebs_phycomed/bpd_2020_krebs_phycomed')
