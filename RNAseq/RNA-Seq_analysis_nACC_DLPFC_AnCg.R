@@ -141,6 +141,7 @@ metatable <- data.frame(metatable,
 # Normalization with DESeq
 library(DESeq2)
 
+# Very important step! Get standard deviation for each continuous variable
 metatable$age <- metatable$age / sd(metatable$age)
 metatable$interval <- metatable$interval / sd(metatable$interval)
 metatable$ph <- metatable$ph / sd(metatable$ph)
@@ -219,7 +220,8 @@ DEGs_analysis <- function(control_label, classes){
     # Subset count matrix to keep samples of the chosen class and controls
     cnt <- as.matrix(exp_set[,colnames(exp_set) %in% meta$sample_name])
     
-    # create dds object. There is no BD patient from cohort B
+    # create dds object. 
+    library(DESeq2)
     dds <- DESeqDataSetFromMatrix(countData = cnt,
                                   colData = meta,
                                   design = ~ age + interval + class,
