@@ -1,2 +1,2 @@
 # BipolarDisorder
-Transcriptome and lipidome analysis of blood from patients with Bipolar Affective Disorder
+Transcriptome and lipidome analysis from patients with Bipolar Affective Disorder
