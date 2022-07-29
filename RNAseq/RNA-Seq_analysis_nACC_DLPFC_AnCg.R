@@ -92,9 +92,13 @@ all(samplesinfo$Sample %in% colnames(exp_set))
 samplesinfo$Class = samplesinfo$source_name_ch1
 
 # Change characters in sex column to numbers so that removeBatchEffect() can analyse it
-samplesinfo$gender.ch1[samplesinfo$Sex.ch1 == "F"] <- 0
-samplesinfo$gender.ch1[samplesinfo$Sex.ch1 == "M"] <- 1
+samplesinfo$gender.ch1[samplesinfo$gender.ch1 == "F"] <- 0
+samplesinfo$gender.ch1[samplesinfo$gender.ch1 == "M"] <- 1
 
+# Exclude Schizophrenia and Major Depression subjects
+samplesinfo <- samplesinfo[!samplesinfo$clinical.diagnosis.ch1 %in% c("Major Depression", "Schizophrenia"),]
+exp_set <- exp_set[, samplesinfo$Sample]
+all(samplesinfo$Sample %in% colnames(exp_set))
 
 write.table(exp_set,
             file = 'intermediate/exp_set.tsv',
@@ -105,10 +109,6 @@ write.table(samplesinfo,
             file = 'intermediate/samplesinfo.tsv',
             sep = '\t',
             row.names = T)
-
-
-
-
 
 
 ###################### Plot PCAs ##################################### 
@@ -141,14 +141,19 @@ metatable <- data.frame(metatable,
 # Normalization with DESeq
 library(DESeq2)
 
-metatable$age <- (metatable$age - mean(metatable$age) ) / sd(metatable$age)
-metatable$interval <- (metatable$interval - mean(metatable$interval) ) / sd(metatable$interval)
-metatable$ph <- (metatable$ph - mean(metatable$ph) ) / sd(metatable$ph)
+metatable$age <- metatable$age / sd(metatable$age)
+metatable$interval <- metatable$interval / sd(metatable$interval)
+metatable$ph <- metatable$ph / sd(metatable$ph)
 metatable$class <- factor(metatable$class)
 metatable$ethnicity <- factor(metatable$ethnicity)
 dds <- DESeqDataSetFromMatrix(countData = exp_set,
                               colData = metatable, 
                               design = ~ age + ethnicity + interval + ph + class)
+
+dds <- estimateSizeFactors(dds)
+dds <- estimateDispersions(dds)
+dds <- nbinomWaldTest(dds, maxit=500)
+ddsClean <- dds[which(mcols(dds)$betaConv),]
 
 library(FactoMineR)
 library(limma)
@@ -158,8 +163,8 @@ vsd <- vst(dds, blind=FALSE)
 assay(vsd) <- limma::removeBatchEffect(assay(vsd),
                                        batch = vsd$age,
                                        batch1 = vsd$interval,
-                                       batch2 = vsd$sex,
-                                       batch3 = vsd$rin)
+                                       batch2 = vsd$ethnicity,
+                                       batch3 = vsd$ph)
 
 PCA <- plotPCA(vsd, intgroup = 'class')
 print(PCA)
@@ -193,16 +198,16 @@ rm(bpctrl, PCA, pca_plot, vsd, pca_var, pca_var_per, percentage)
 
 
 ###################### DEGs with DESeq2
-###################### BP vs Ctrl ####
+###################### BP vs Ctrl - AngCg ####
 
 # Define the control group label
-control_label <- "dorsal striatum, control"
+control_label <- "AnCg_Control"
 
 # Create sexes variable to iterate through
 sexes <- unique(metatable$sex)
 
 # Define the targets/conditions (all classes but control/healthy)
-classes <- "dorsal striatum, bipolar"
+classes <- "AnCg_Bipolar Disorder"
 
 for(i in 1:length(sexes)){
   # Define class to be compared in DE analysis
@@ -211,6 +216,105 @@ for(i in 1:length(sexes)){
   # Subset metadata to include only samples of the chosen class and controls
   meta <- metatable %>%
     filter(sex == sx)
+  meta <- meta %>%
+    filter(class == control_label | class == classes)
+  
+  # Transform class column into a factor with the levels in the correct order:
+  # FIRST CONTROL, SECOND TREATED.
+  meta$class <- factor(meta$class, levels = c(control_label, classes))
+  
+  # Subset count matrix to keep samples of the chosen class and controls
+  cnt <- as.matrix(exp_set[,colnames(exp_set) %in% meta$sample_name])
+  
+  # create dds object. There is no BD patient from cohort B
+  dds <- DESeqDataSetFromMatrix(countData = cnt,
+                                     colData = meta,
+                                     design = ~ age + interval + class,
+                                     tidy = F)
+  
+  # Remove genes that have zero counts in all samples (i.e. not expressed genes)
+  dds <- estimateSizeFactors(dds)
+  nc <- counts(dds, normalized=TRUE)
+  filter <- rowSums(nc >= 10) >= 2
+  dds <- dds[filter,]
+  
+  
+  # Run DE analysis with default DESeq2 settings
+  dds_trat <- DESeq(dds)
+  
+  # extract results defining the order of comparison
+  # must be: constrast=c("CLASS COLUMN IN META","DISEASE/TREATMENT GROUP","CONTROL)
+  # This will give log2FoldChange values that correspond to disease vs control
+  res <- as.data.frame(results(dds_trat, contrast = c("class",
+                                                      classes,
+                                                      control_label)))
+  res_annot <- res %>%
+    tibble::rownames_to_column("Gene") %>%
+    mutate(group = sx)
+  
+  if(i==1){
+    DEGs_all_DESeq2 <- res_annot
+  }else{
+    DEGs_all_DESeq2 <- rbind(DEGs_all_DESeq2, res_annot)
+  }
+  
+}
+  
+rm(res_annot, res, meta, cnt, classes, control_label)
+
+write.table(DEGs_all_DESeq2,
+            file = 'intermediate/DEGs_BP_vs_Ctrl_OWM.tsv',
+            sep = '\t',
+            row.names = F,
+            quote = F)
+
+# Subset DEGs to keep only data from women and filter based on padj and log2FC
+female_filtered <- subset.data.frame(DEGs_all_DESeq2, group == 0)
+female_filtered <- female_filtered[female_filtered$log2FoldChange < -1.5 | 
+                                     female_filtered$log2FoldChange > 1.5,]
+female_filtered <- female_filtered[female_filtered$padj < 0.05,]
+
+write.table(female_filtered,
+            file = 'intermediate/female_filtered.tsv',
+            sep = '\t',
+            row.names = F,
+            quote = F)
+
+# Subset DEGs to keep only data from men and filter based on padj and log2FC
+male_filtered <- subset.data.frame(DEGs_all_DESeq2, group == 1)
+male_filtered <- male_filtered[male_filtered$log2FoldChange < -1.5 | 
+                                 male_filtered$log2FoldChange > 1.5,]
+male_filtered <- male_filtered[male_filtered$padj < 0.05,]
+male_filtered <- male_filtered[!is.na(male_filtered$padj),]
+
+write.table(male_filtered,
+            file = 'intermediate/male_filtered.tsv',
+            sep = '\t',
+            row.names = F,
+            quote = F)
+
+
+###################### DEGs with DESeq2
+###################### BP vs Ctrl - AngCg ####
+
+# Define the control group label
+control_label <- "DLPFC_Control"
+
+# Create sexes variable to iterate through
+sexes <- unique(metatable$sex)
+
+# Define the targets/conditions (all classes but control/healthy)
+classes <- "DLPFC_Bipolar Disorder"
+
+for(i in 1:length(sexes)){
+  # Define class to be compared in DE analysis
+  sx <- sexes[i]
+  
+  # Subset metadata to include only samples of the chosen class and controls
+  meta <- metatable %>%
+    filter(sex == sx)
+  meta <- metatable %>%
+    filter(class == control_label | class == classes)
   
   # Transform class column into a factor with the levels in the correct order:
   # FIRST CONTROL, SECOND TREATED.
@@ -222,7 +326,7 @@ for(i in 1:length(sexes)){
   # create dds object. There is no BD patient from cohort B
   dds_trat <- DESeqDataSetFromMatrix(countData = cnt,
                                      colData = meta,
-                                     design = ~ age + interval + rin + class,
+                                     design = ~ age + ethnicity + interval + ph + class,
                                      tidy = F)
   
   # Remove genes that have zero counts in all samples (i.e. not expressed genes)
@@ -249,6 +353,7 @@ for(i in 1:length(sexes)){
   }
   
 }
+
 rm(res_annot, res, meta, cnt, classes, control_label)
 
 write.table(DEGs_all_DESeq2,
