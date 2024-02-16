@@ -1,2 +1,3 @@
-# BipolarDisorder
-Transcriptome analysis from patients with Bipolar Affective Disorder
+# Bipolar Disorder
+
+Bulk and snRNA-Seq analysis of Bipolar Disorder
